@@ -1,4 +1,4 @@
-# real-estae-recommendation
+# real-estate-recommendation
 
 **Nesta — AI Property Recommendation Assistant**
 
