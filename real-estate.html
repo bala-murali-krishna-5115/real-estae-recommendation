@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nesta — Property Recommendation Chat</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBF7EF;
+    --panel:#FFFFFF;
+    --ink:#20262B;
+    --ink-soft:#5B6570;
+    --navy:#183247;
+    --navy-deep:#0F2233;
+    --gold:#C79A4B;
+    --gold-soft:#E9D6AC;
+    --sage:#5C7A63;
+    --line:#E4DCC9;
+    --brick:#B5563C;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, #F4ECD8 0%, transparent 45%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:28px 16px 60px;
+  }
+  .app{
+    width:100%;
+    max-width:960px;
+    display:grid;
+    grid-template-columns:240px 1fr;
+    gap:22px;
+  }
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr;}
+    .ledger{order:2;}
+  }
+
+  /* ---------- Header ---------- */
+  .masthead{
+    grid-column:1/-1;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:2px solid var(--navy);
+    padding-bottom:12px;
+    margin-bottom:4px;
+  }
+  .masthead h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:30px;
+    letter-spacing:-0.01em;
+    margin:0;
+    color:var(--navy-deep);
+  }
+  .masthead h1 span{color:var(--brick); font-style:italic; font-weight:400;}
+  .masthead .tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:.08em;
+  }
+
+  /* ---------- Ledger (left rail: progress) ---------- */
+  .ledger{
+    background:var(--navy-deep);
+    border-radius:var(--radius);
+    padding:20px 18px;
+    color:#EDEAE0;
+    position:sticky;
+    top:20px;
+    height:fit-content;
+  }
+  .ledger h2{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color:var(--gold-soft);
+    margin:0 0 14px;
+  }
+  .ledger-item{
+    display:flex;
+    gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    font-size:13px;
+    align-items:flex-start;
+  }
+  .ledger-item:last-child{border-bottom:none;}
+  .ledger-num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--gold-soft);
+    width:16px;
+    flex-shrink:0;
+    padding-top:1px;
+  }
+  .ledger-label{color:rgba(237,234,224,0.55); transition:color .25s;}
+  .ledger-val{display:block; color:#fff; font-weight:500; margin-top:1px;}
+  .ledger-item.active .ledger-label{color:var(--gold-soft);}
+  .ledger-item.done .ledger-num{color:var(--sage);}
+
+  /* ---------- Chat panel ---------- */
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    display:flex;
+    flex-direction:column;
+    min-height:560px;
+    overflow:hidden;
+  }
+  .thread{
+    flex:1;
+    padding:22px 22px 10px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    overflow-y:auto;
+    max-height:600px;
+  }
+  .msg{
+    display:flex;
+    gap:10px;
+    max-width:88%;
+    animation:rise .35s ease both;
+  }
+  @keyframes rise{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+  .msg.bot{align-self:flex-start;}
+  .msg.user{align-self:flex-end; flex-direction:row-reverse;}
+  .avatar{
+    width:28px;height:28px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Fraunces',serif; font-size:13px; font-weight:600;
+    flex-shrink:0;
+  }
+  .msg.bot .avatar{background:var(--navy); color:var(--gold-soft);}
+  .msg.user .avatar{background:var(--gold-soft); color:var(--navy-deep);}
+  .bubble{
+    padding:11px 14px;
+    border-radius:12px;
+    font-size:14.5px;
+    line-height:1.5;
+  }
+  .msg.bot .bubble{background:#F3EEE0; color:var(--ink); border-top-left-radius:3px;}
+  .msg.user .bubble{background:var(--navy); color:#fff; border-top-right-radius:3px;}
+  .bubble b{color:var(--brick);}
+  .msg.user .bubble b{color:var(--gold-soft);}
+
+  .quick-replies{
+    display:flex; flex-wrap:wrap; gap:8px;
+    padding:4px 22px 18px;
+  }
+  .qr-btn{
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    font-weight:500;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1.5px solid var(--navy);
+    background:#fff;
+    color:var(--navy-deep);
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .qr-btn:hover{background:var(--navy); color:#fff;}
+  .qr-btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  .composer{
+    display:flex;
+    gap:8px;
+    padding:14px 18px;
+    border-top:1px solid var(--line);
+    background:#FCFAF4;
+  }
+  .composer input{
+    flex:1;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    padding:10px 13px;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    outline:none;
+    background:#fff;
+  }
+  .composer input:focus{border-color:var(--navy);}
+  .composer button{
+    background:var(--brick);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:0 18px;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .composer button:hover{background:#984830;}
+  .composer.hidden{display:none;}
+
+  /* ---------- Property cards ---------- */
+  .listings{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    padding:2px 22px 18px;
+  }
+  .card{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:14px 16px;
+    background:linear-gradient(180deg,#fff, #FDFBF5);
+    position:relative;
+    overflow:hidden;
+  }
+  .card::before{
+    content:attr(data-tag);
+    position:absolute;
+    top:10px; right:-32px;
+    background:var(--gold);
+    color:#fff;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9.5px;
+    letter-spacing:.06em;
+    padding:3px 34px;
+    transform:rotate(35deg);
+    box-shadow:0 1px 2px rgba(0,0,0,.15);
+  }
+  .card h3{
+    font-family:'Fraunces',serif;
+    font-size:17px;
+    margin:0 0 4px;
+    color:var(--navy-deep);
+    padding-right:50px;
+  }
+  .card .loc{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+  }
+  .card .specs{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-family:'JetBrains Mono',monospace;
+    margin-bottom:8px;
+  }
+  .card .price{
+    font-size:16px;
+    font-weight:700;
+    color:var(--sage);
+    font-family:'Fraunces',serif;
+  }
+  .card .emi-line{
+    font-size:12.5px;
+    color:var(--brick);
+    margin-top:2px;
+  }
+  .card .pick-btn{
+    margin-top:10px;
+    background:var(--navy);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:7px 12px;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .card .pick-btn:hover{background:var(--navy-deep);}
+
+  /* ---------- EMI + contact panels ---------- */
+  .info-box{
+    border:1px dashed var(--gold);
+    background:#FEFBF2;
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:13px;
+    margin:2px 22px 16px;
+    color:var(--ink);
+  }
+  .info-box .k{color:var(--ink-soft); font-family:'JetBrains Mono',monospace; font-size:11px;}
+
+  form.inline-form{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    padding:2px 22px 18px;
+    max-width:340px;
+  }
+  form.inline-form input, form.inline-form select{
+    border:1.5px solid var(--line);
+    border-radius:8px;
+    padding:9px 11px;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+  }
+  form.inline-form button{
+    background:var(--brick);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:10px;
+    font-weight:600;
+    cursor:pointer;
+  }
+
+  .card .map-embed{
+    margin-top:10px;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .card .map-embed iframe{
+    width:100%;
+    height:140px;
+    border:0;
+    display:block;
+  }
+  .card .map-link{
+    display:inline-block;
+    margin-top:6px;
+    font-size:11.5px;
+    color:var(--navy);
+    text-decoration:none;
+    font-family:'JetBrains Mono',monospace;
+    border-bottom:1px dotted var(--navy);
+  }
+  .search-status{
+    margin:2px 22px 4px;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-family:'JetBrains Mono',monospace;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .search-status .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--brick);
+    animation:pulse 1s infinite ease-in-out;
+  }
+  @keyframes pulse{0%,100%{opacity:.3;} 50%{opacity:1;}}
+
+  .typing{
+    display:flex; gap:4px; padding:4px 2px;
+  }
+  .typing span{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--ink-soft);
+    animation:bounce 1.1s infinite ease-in-out;
+  }
+  .typing span:nth-child(2){animation-delay:.15s;}
+  .typing span:nth-child(3){animation-delay:.3s;}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0); opacity:.4;} 30%{transform:translateY(-4px); opacity:1;}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="masthead">
+    <h1>Nesta <span>— your property scout</span></h1>
+    <div class="tag">AI-assisted &middot; Andhra Pradesh &amp; beyond</div>
+  </div>
+
+  <div class="ledger" id="ledger">
+    <h2>Your brief</h2>
+    <div class="ledger-item" data-key="budget"><div class="ledger-num">01</div><div><div class="ledger-label">Budget</div><span class="ledger-val">—</span></div></div>
+    <div class="ledger-item" data-key="city"><div class="ledger-num">02</div><div><div class="ledger-label">Location</div><span class="ledger-val">—</span></div></div>
+    <div class="ledger-item" data-key="type"><div class="ledger-num">03</div><div><div class="ledger-label">Property type</div><span class="ledger-val">—</span></div></div>
+    <div class="ledger-item" data-key="beds"><div class="ledger-num">04</div><div><div class="ledger-label">Bedrooms</div><span class="ledger-val">—</span></div></div>
+    <div class="ledger-item" data-key="pick"><div class="ledger-num">05</div><div><div class="ledger-label">Shortlisted</div><span class="ledger-val">—</span></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="thread" id="thread"></div>
+    <div class="quick-replies" id="quickReplies"></div>
+    <div class="composer" id="composer">
+      <input type="text" id="textInput" placeholder="Type here…" autocomplete="off">
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- Data ---------------- */
+const CITIES = ["Visakhapatnam","Vijayawada","Guntur","Hyderabad","Rajahmundry","Tirupati","Nellore"];
+const TYPES = ["Apartment","Villa","Plot"];
+const BUDGETS = [
+  {label:"Under ₹40 Lakh", min:0, max:4000000},
+  {label:"₹40L – ₹80L", min:4000000, max:8000000},
+  {label:"₹80L – ₹1.5Cr", min:8000000, max:15000000},
+  {label:"Above ₹1.5Cr", min:15000000, max:999999999}
+];
+const BEDS = ["1","2","3","4+","N/A (Plot)"];
+
+/* ---------------- State machine ---------------- */
+const state = { budget:null, city:null, type:null, beds:null, matches:[], picked:null };
+let step = "budget";
+
+const thread = document.getElementById('thread');
+const qrBox = document.getElementById('quickReplies');
+const composer = document.getElementById('composer');
+const textInput = document.getElementById('textInput');
+const sendBtn = document.getElementById('sendBtn');
+
+function fmtINR(n){
+  if(n>=10000000) return "₹" + (n/10000000).toFixed(2).replace(/\.00$/,'') + " Cr";
+  if(n>=100000) return "₹" + (n/100000).toFixed(2).replace(/\.00$/,'') + " L";
+  return "₹" + n.toLocaleString('en-IN');
+}
+
+function addMsg(who, html, opts={}){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + who;
+  const av = document.createElement('div');
+  av.className = 'avatar';
+  av.textContent = who === 'bot' ? 'N' : 'You'[0];
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.innerHTML = html;
+  wrap.appendChild(av); wrap.appendChild(b);
+  thread.appendChild(wrap);
+  thread.scrollTop = thread.scrollHeight;
+  return wrap;
+}
+
+function botTyping(delay=550){
+  return new Promise(res=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'msg bot';
+    wrap.innerHTML = `<div class="avatar">N</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+    thread.appendChild(wrap);
+    thread.scrollTop = thread.scrollHeight;
+    setTimeout(()=>{ wrap.remove(); res(); }, delay);
+  });
+}
+
+function setQuickReplies(options, onPick){
+  qrBox.innerHTML = '';
+  options.forEach(opt=>{
+    const b = document.createElement('button');
+    b.className = 'qr-btn';
+    b.textContent = opt.label || opt;
+    b.onclick = ()=>{
+      Array.from(qrBox.children).forEach(c=>c.disabled=true);
+      onPick(opt);
+    };
+    qrBox.appendChild(b);
+  });
+}
+
+function clearQuickReplies(){ qrBox.innerHTML=''; }
+
+function updateLedger(key, val){
+  const item = document.querySelector(`.ledger-item[data-key="${key}"]`);
+  if(!item) return;
+  item.classList.add('done');
+  item.querySelector('.ledger-val').textContent = val;
+}
+function setActiveLedger(key){
+  document.querySelectorAll('.ledger-item').forEach(i=>i.classList.remove('active'));
+  const item = document.querySelector(`.ledger-item[data-key="${key}"]`);
+  if(item) item.classList.add('active');
+}
+
+/* ---------------- Conversation flow ---------------- */
+async function startFlow(){
+  composer.classList.add('hidden');
+  await botTyping(500);
+  addMsg('bot', `Hi there 👋 I'm <b>Nesta</b>, your property scout for Andhra Pradesh, Telangana and nearby cities. I'll ask a few quick questions, then match you with real listings — down to the EMI. Let's start.`);
+  await botTyping(400);
+  addMsg('bot', `First up — what's your <b>budget</b> for this property?`);
+  setActiveLedger('budget');
+  setQuickReplies(BUDGETS, pick=>{
+    addMsg('user', pick.label);
+    state.budget = pick;
+    updateLedger('budget', pick.label);
+    clearQuickReplies();
+    askCity();
+  });
+}
+
+async function askCity(){
+  await botTyping(450);
+  addMsg('bot', `Great. Which <b>city or area</b> are you looking in?`);
+  setActiveLedger('city');
+  setQuickReplies(CITIES, pick=>{
+    addMsg('user', pick);
+    state.city = pick;
+    updateLedger('city', pick);
+    clearQuickReplies();
+    askType();
+  });
+}
+
+async function askType(){
+  await botTyping(450);
+  addMsg('bot', `And what <b>type of property</b> are you after?`);
+  setActiveLedger('type');
+  setQuickReplies(TYPES, pick=>{
+    addMsg('user', pick);
+    state.type = pick;
+    updateLedger('type', pick);
+    clearQuickReplies();
+    if(pick === 'Plot'){
+      state.beds = 'N/A';
+      updateLedger('beds', 'N/A (Plot)');
+      showMatches();
+    } else {
+      askBeds();
+    }
+  });
+}
+
+async function askBeds(){
+  await botTyping(450);
+  addMsg('bot', `How many <b>bedrooms</b> do you need?`);
+  setActiveLedger('beds');
+  setQuickReplies(BEDS.filter(b=>b!=="N/A (Plot)"), pick=>{
+    addMsg('user', pick + ' BHK');
+    state.beds = pick.replace('+','');
+    updateLedger('beds', pick + ' BHK');
+    clearQuickReplies();
+    showMatches();
+  });
+}
+
+function calcEMI(price){
+  const loan = price * 0.8; // 80% loan, 20% down payment
+  const annualRate = 0.085;
+  const r = annualRate/12;
+  const n = 20*12; // 20 year tenure
+  const emi = loan * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
+  return {loan, emi};
+}
+
+function mapEmbedSrc(query){
+  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&hl=en&z=14&output=embed`;
+}
+function mapLinkHref(query){
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+/* Calls Claude (with web_search enabled) to find real, current listings
+   matching the collected criteria. Expects strict JSON back. */
+async function searchListingsOnline(){
+  const budgetLabel = state.budget.label;
+  const bedsLine = state.type === 'Plot' ? '' : `- Bedrooms: ${state.beds} BHK\n`;
+  const prompt = `Search the web for 3 to 5 REAL, currently listed ${state.type} properties for sale in ${state.city}, India matching:
+- Budget: ${budgetLabel} (roughly ₹${state.budget.min.toLocaleString('en-IN')} to ₹${state.budget.max===999999999? '1.5Cr+' : state.budget.min===0? '40L' : state.budget.max.toLocaleString('en-IN')})
+${bedsLine}Look on sites like 99acres, MagicBricks, Housing.com, NoBroker, or builder sites.
+
+Respond with ONLY a raw JSON array (no markdown fences, no commentary), each item shaped exactly like:
+{"name": "Project/listing name", "price": <number in INR, no commas>, "area": "e.g. 1200 sqft or 200 sqyd", "beds": <number, 0 if plot>, "address": "specific locality, ${state.city}", "tag": "short 1-3 word highlight", "source": "site name e.g. 99acres", "link": "https://... direct URL if available, else the search site homepage"}
+
+If you cannot find enough real listings, return fewer items rather than inventing implausible ones. JSON array only.`;
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1500,
+      messages: [{ role: "user", content: prompt }],
+      tools: [{ type: "web_search_20250305", name: "web_search" }]
+    })
+  });
+  const data = await resp.json();
+  const textBlocks = (data.content || [])
+    .filter(b => b.type === "text")
+    .map(b => b.text)
+    .join("\n");
+  const cleaned = textBlocks.replace(/```json|```/g, "").trim();
+  const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+  if(!jsonMatch) throw new Error("No JSON array in response");
+  const arr = JSON.parse(jsonMatch[0]);
+  return arr.map((p,i)=> ({
+    id: 'live-' + i,
+    name: p.name || 'Untitled listing',
+    type: state.type,
+    city: state.city,
+    beds: Number(p.beds) || 0,
+    price: Number(p.price) || 0,
+    area: p.area || '—',
+    tag: p.tag || 'Listed',
+    address: p.address || state.city,
+    source: p.source || 'Web',
+    link: p.link || `https://www.google.com/search?q=${encodeURIComponent((p.name||'')+' '+state.city)}`
+  })).filter(p=>p.price>0);
+}
+
+async function showMatches(){
+  setActiveLedger('pick');
+  await botTyping(500);
+  addMsg('bot', `Searching the web for current ${state.type.toLowerCase()} listings in <b>${state.city}</b> that fit your budget…`);
+  const statusEl = document.createElement('div');
+  statusEl.className = 'search-status';
+  statusEl.innerHTML = `<span class="dot"></span> Checking 99acres, MagicBricks, Housing.com…`;
+  thread.appendChild(statusEl);
+  thread.scrollTop = thread.scrollHeight;
+
+  let matches = [];
+  let searchFailed = false;
+  try{
+    matches = await searchListingsOnline();
+  }catch(err){
+    console.error(err);
+    searchFailed = true;
+  }
+  statusEl.remove();
+  state.matches = matches;
+
+  if(searchFailed){
+    addMsg('bot', `I ran into trouble searching live listings just now (this demo calls a search API that may be rate-limited). Let's still grab your contact details and our team will hand-pick options for you.`);
+    askContact();
+    return;
+  }
+
+  if(matches.length === 0){
+    addMsg('bot', `I couldn't find real listings matching that exact combination in <b>${state.city}</b> right now. Let's grab your contact details and our team will follow up with fresh options as they list.`);
+    askContact();
+    return;
+  }
+
+  addMsg('bot', `Here's what I found live for <b>${state.city}</b> — pulled from current property listing sites:`);
+
+  const box = document.createElement('div');
+  box.className = 'listings';
+  matches.forEach(p=>{
+    const {loan, emi} = calcEMI(p.price);
+    const mapQuery = `${p.name}, ${p.address}`;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.tag = p.tag;
+    card.innerHTML = `
+      <h3>${p.name}</h3>
+      <div class="loc">${p.type} &middot; ${p.address}</div>
+      <div class="specs">
+        <span>${p.beds > 0 ? p.beds + ' BHK' : 'Open plot'}</span>
+        <span>${p.area}</span>
+        <span>via ${p.source}</span>
+      </div>
+      <div class="price">${fmtINR(p.price)}</div>
+      <div class="emi-line">Est. EMI: <b>₹${Math.round(emi).toLocaleString('en-IN')}/mo</b> &middot; 20% down, 8.5% p.a., 20 yrs</div>
+      <div class="map-embed"><iframe src="${mapEmbedSrc(mapQuery)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+      <a class="map-link" href="${mapLinkHref(mapQuery)}" target="_blank" rel="noopener">Open in Google Maps ↗</a><br>
+      <a class="map-link" href="${p.link}" target="_blank" rel="noopener">View original listing ↗</a>
+      <div><button class="pick-btn" data-id="${p.id}">Shortlist this one</button></div>
+    `;
+    box.appendChild(card);
+  });
+  thread.appendChild(box);
+  thread.scrollTop = thread.scrollHeight;
+
+  box.querySelectorAll('.pick-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      box.querySelectorAll('.pick-btn').forEach(b=>{b.disabled=true; b.style.opacity=.5;});
+      const p = matches.find(m=>m.id == btn.dataset.id);
+      state.picked = p;
+      updateLedger('pick', p.name);
+      addMsg('user', `I'll go with ${p.name}`);
+      showEMIDetail(p);
+    };
+  });
+}
+
+async function showEMIDetail(p){
+  const {loan, emi} = calcEMI(p.price);
+  await botTyping(500);
+  const info = document.createElement('div');
+  info.className = 'info-box';
+  info.innerHTML = `
+    <div><span class="k">PROPERTY</span><br>${p.name}, ${p.city}</div><br>
+    <div><span class="k">PRICE</span><br>${fmtINR(p.price)}</div><br>
+    <div><span class="k">DOWN PAYMENT (20%)</span><br>${fmtINR(p.price*0.2)}</div><br>
+    <div><span class="k">LOAN AMOUNT (80%)</span><br>${fmtINR(loan)}</div><br>
+    <div><span class="k">ESTIMATED EMI</span><br>₹${Math.round(emi).toLocaleString('en-IN')} / month <span style="color:var(--ink-soft)">(8.5% p.a., 20-year tenure)</span></div>
+  `;
+  thread.appendChild(info);
+  thread.scrollTop = thread.scrollHeight;
+  addMsg('bot', `Good choice. That's a solid EMI estimate — actual rates vary by lender and your credit profile, so treat this as a ballpark. Want me to line up a <b>site visit</b> and grab your contact details so our team can follow up?`);
+  setQuickReplies([{label:"Yes, book a site visit"},{label:"Just share contact details"}], pick=>{
+    addMsg('user', pick.label);
+    clearQuickReplies();
+    if(pick.label.includes('site visit')){
+      askContact(true);
+    } else {
+      askContact(false);
+    }
+  });
+}
+
+function askContact(wantsVisit){
+  botTyping(500).then(()=>{
+    addMsg('bot', `Sure — just drop your details below and our property advisor will reach out${wantsVisit ? ' to confirm the visit slot' : ''}.`);
+    const form = document.createElement('form');
+    form.className = 'inline-form';
+    form.innerHTML = `
+      <input type="text" name="name" placeholder="Full name" required>
+      <input type="tel" name="phone" placeholder="Phone number" required pattern="[0-9]{10}" maxlength="10">
+      <input type="email" name="email" placeholder="Email (optional)">
+      ${wantsVisit ? `<input type="date" name="date" required><select name="slot" required>
+        <option value="">Preferred time slot</option>
+        <option>Morning (10am–12pm)</option>
+        <option>Afternoon (1pm–4pm)</option>
+        <option>Evening (5pm–7pm)</option>
+      </select>` : ''}
+      <button type="submit">${wantsVisit ? 'Confirm site visit' : 'Share details'}</button>
+    `;
+    thread.appendChild(form);
+    thread.scrollTop = thread.scrollHeight;
+
+    form.onsubmit = (e)=>{
+      e.preventDefault();
+      const fd = new FormData(form);
+      const name = fd.get('name');
+      const phone = fd.get('phone');
+      form.querySelectorAll('input,select,button').forEach(el=>el.disabled=true);
+      addMsg('user', `${name} &middot; ${phone}${wantsVisit ? ' — ' + fd.get('date') + ', ' + fd.get('slot') : ''}`);
+      botTyping(500).then(()=>{
+        if(wantsVisit){
+          addMsg('bot', `All set, ${name.split(' ')[0]}! Your site visit for <b>${state.picked ? state.picked.name : 'the shortlisted property'}</b> is requested for <b>${fd.get('date')}</b> (${fd.get('slot')}). Our advisor will call <b>${phone}</b> shortly to confirm. 🏡`);
+        } else {
+          addMsg('bot', `Thanks, ${name.split(' ')[0]}! We've noted your interest${state.picked ? ' in ' + state.picked.name : ''}. Our advisor will call <b>${phone}</b> within the day.`);
+        }
+        addMsg('bot', `Want to explore another property or restart with a different budget/city?`);
+        setQuickReplies([{label:"Start a new search"}], ()=>{
+          addMsg('user', 'Start a new search');
+          resetFlow();
+        });
+      });
+    };
+  });
+}
+
+function resetFlow(){
+  state.budget=null; state.city=null; state.type=null; state.beds=null; state.matches=[]; state.picked=null;
+  document.querySelectorAll('.ledger-item').forEach(i=>{
+    i.classList.remove('done','active');
+    i.querySelector('.ledger-val').textContent='—';
+  });
+  clearQuickReplies();
+  step='budget';
+  botTyping(400).then(()=>{
+    addMsg('bot', `Let's start fresh — what's your budget this time?`);
+    setActiveLedger('budget');
+    setQuickReplies(BUDGETS, pick=>{
+      addMsg('user', pick.label);
+      state.budget = pick;
+      updateLedger('budget', pick.label);
+      clearQuickReplies();
+      askCity();
+    });
+  });
+}
+
+startFlow();
+</script>
+</body>
+</html>
